@@ -7,6 +7,7 @@ from starlette.responses import Response, JSONResponse
 
 from src.config import get_settings
 from src.observability.logger import get_logger
+from src.observability.metrics import GUARDRAIL_CHECKS, GUARDRAIL_BLOCKS, GUARDRAIL_FLAGS
 
 log = get_logger(__name__)
 
@@ -72,15 +73,24 @@ class GuardrailsMiddleware(BaseHTTPMiddleware):
             triggered = []
 
             if settings.guardrails_pii_enabled:
-                triggered.extend(detect_pii(message))
+                GUARDRAIL_CHECKS.labels(type="pii").inc()
+                pii_hits = detect_pii(message)
+                triggered.extend(pii_hits)
+                for hit in pii_hits:
+                    GUARDRAIL_FLAGS.labels(type=hit).inc()
 
             if settings.guardrails_injection_enabled:
-                triggered.extend(detect_injection(message))
+                GUARDRAIL_CHECKS.labels(type="injection").inc()
+                injection_hits = detect_injection(message)
+                triggered.extend(injection_hits)
 
             if settings.guardrails_content_filter_enabled:
-                triggered.extend(detect_blocked_content(message))
+                GUARDRAIL_CHECKS.labels(type="content_filter").inc()
+                content_hits = detect_blocked_content(message)
+                triggered.extend(content_hits)
 
             if "prompt_injection" in triggered:
+                GUARDRAIL_BLOCKS.labels(type="prompt_injection").inc()
                 log.warning("Blocked prompt injection attempt: %s", request.client.host)
                 return JSONResponse(
                     status_code=400,
@@ -88,6 +98,7 @@ class GuardrailsMiddleware(BaseHTTPMiddleware):
                 )
 
             if "blocked_content" in triggered:
+                GUARDRAIL_BLOCKS.labels(type="blocked_content").inc()
                 log.warning("Blocked harmful content: %s", request.client.host)
                 return JSONResponse(
                     status_code=400,

@@ -12,6 +12,7 @@ dependencies = [
     "python-multipart>=0.0.18",
     "pydantic-settings>=2.7.0",
     "python-dotenv>=1.0.1",
+    "prometheus-client>=0.21.0",
 ]
 
 [project.optional-dependencies]

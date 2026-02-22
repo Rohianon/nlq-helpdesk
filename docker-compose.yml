@@ -1,0 +1,92 @@
+services:
+  # --- Backend (FastAPI + Gemini + RAG) ---
+  backend:
+    build: ./backend
+    container_name: nlq-backend
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./backend/.env
+    environment:
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - CORS_ORIGINS=["http://localhost","http://localhost:3000","http://localhost:5173"]
+    volumes:
+      - backend-data:/app/data
+      - ./data:/project-data:ro
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # --- Frontend (React + Nginx) ---
+  frontend:
+    build: ./frontend
+    container_name: nlq-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # --- ChromaDB (Vector Store) ---
+  chromadb:
+    image: chromadb/chroma:0.6.3
+    container_name: nlq-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma-data:/chroma/chroma
+    environment:
+      - ANONYMIZED_TELEMETRY=false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # --- Prometheus (Metrics Collection) ---
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    container_name: nlq-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # --- Grafana (Observability Dashboards) ---
+  grafana:
+    image: grafana/grafana:11.5.2
+    container_name: nlq-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=helpdesk
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/nlq-helpdesk.json
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  backend-data:
+  chroma-data:
+  prometheus-data:
+  grafana-data:

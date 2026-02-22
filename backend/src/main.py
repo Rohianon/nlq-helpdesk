@@ -10,6 +10,7 @@ from src.api import chat, documents, admin, analytics, health
 from src.guardrails.middleware import GuardrailsMiddleware
 from src.observability.logger import setup_logging
 from src.observability.tracer import TracingMiddleware
+from src.observability.metrics import metrics_endpoint
 
 
 @asynccontextmanager
@@ -39,6 +40,8 @@ app.add_middleware(
 )
 app.add_middleware(TracingMiddleware)
 app.add_middleware(GuardrailsMiddleware)
+
+app.add_route("/metrics", metrics_endpoint, methods=["GET"])
 
 app.include_router(health.router)
 app.include_router(chat.router, prefix="/api")

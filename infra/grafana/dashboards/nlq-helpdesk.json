@@ -1,0 +1,195 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Request Rate (req/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "fillOpacity": 20, "lineWidth": 2 } },
+        "overrides": []
+      },
+      "targets": [{
+        "expr": "sum(rate(helpdesk_http_requests_total[1m])) by (endpoint)",
+        "legendFormat": "{{endpoint}}",
+        "refId": "A"
+      }],
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" } }
+    },
+    {
+      "title": "LLM Generation Latency (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "fillOpacity": 10, "lineWidth": 2 } },
+        "overrides": []
+      },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, rate(helpdesk_llm_latency_seconds_bucket[5m]))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, rate(helpdesk_llm_latency_seconds_bucket[5m]))", "legendFormat": "p95", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, rate(helpdesk_llm_latency_seconds_bucket[5m]))", "legendFormat": "p99", "refId": "C" }
+      ]
+    },
+    {
+      "title": "Token Usage Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "fillOpacity": 30, "lineWidth": 2, "stacking": { "mode": "normal" } } },
+        "overrides": []
+      },
+      "targets": [
+        { "expr": "rate(helpdesk_llm_tokens_prompt_total[1m])", "legendFormat": "Prompt tokens/s", "refId": "A" },
+        { "expr": "rate(helpdesk_llm_tokens_completion_total[1m])", "legendFormat": "Completion tokens/s", "refId": "B" }
+      ]
+    },
+    {
+      "title": "Total Queries",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" } } },
+      "targets": [{ "expr": "helpdesk_conversations_total", "refId": "A" }],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" }
+    },
+    {
+      "title": "Total Tokens Used",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 8 },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "purple" } } },
+      "targets": [{ "expr": "helpdesk_llm_tokens_prompt_total + helpdesk_llm_tokens_completion_total", "refId": "A" }],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" }
+    },
+    {
+      "title": "Documents Ingested",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 8 },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "green" } } },
+      "targets": [{ "expr": "helpdesk_documents_ingested_total", "refId": "A" }],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" }
+    },
+    {
+      "title": "Chunks in KB",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "orange" } } },
+      "targets": [{ "expr": "helpdesk_chunks_created_total", "refId": "A" }],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" }
+    },
+    {
+      "title": "Guardrail Blocks",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 8 },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "red" } } },
+      "targets": [{ "expr": "sum(helpdesk_guardrail_blocks_total) or vector(0)", "refId": "A" }],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" }
+    },
+    {
+      "title": "Active Sessions",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 8 },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "semi-dark-blue" } } },
+      "targets": [{ "expr": "helpdesk_active_sessions", "refId": "A" }],
+      "options": { "colorMode": "background", "graphMode": "area", "textMode": "value" }
+    },
+    {
+      "title": "RAG Retrieval Score Distribution",
+      "type": "histogram",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 12 },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "green" } } },
+      "targets": [{ "expr": "helpdesk_rag_retrieval_score_bucket", "legendFormat": "{{le}}", "refId": "A", "format": "heatmap" }],
+      "options": { "bucketSize": 0.1, "combine": true, "fillOpacity": 80 }
+    },
+    {
+      "title": "Response Confidence Distribution",
+      "type": "histogram",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 12 },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "yellow" } } },
+      "targets": [{ "expr": "helpdesk_response_confidence_bucket", "legendFormat": "{{le}}", "refId": "A", "format": "heatmap" }],
+      "options": { "bucketSize": 0.1, "combine": true, "fillOpacity": 80 }
+    },
+    {
+      "title": "Guardrail Activity",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 12 },
+      "fieldConfig": {
+        "defaults": { "custom": { "fillOpacity": 30, "lineWidth": 2, "stacking": { "mode": "normal" } } },
+        "overrides": []
+      },
+      "targets": [
+        { "expr": "sum(rate(helpdesk_guardrail_checks_total[1m])) by (type)", "legendFormat": "checks: {{type}}", "refId": "A" },
+        { "expr": "sum(rate(helpdesk_guardrail_blocks_total[1m])) by (type)", "legendFormat": "blocks: {{type}}", "refId": "B" },
+        { "expr": "sum(rate(helpdesk_guardrail_flags_total[1m])) by (type)", "legendFormat": "flags: {{type}}", "refId": "C" }
+      ]
+    },
+    {
+      "title": "RAG Retrieval Latency vs LLM Generation Latency",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "fillOpacity": 15, "lineWidth": 2 } },
+        "overrides": []
+      },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, rate(helpdesk_rag_retrieval_latency_seconds_bucket[5m]))", "legendFormat": "Retrieval p95", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, rate(helpdesk_llm_latency_seconds_bucket[5m]))", "legendFormat": "LLM Gen p95", "refId": "B" },
+        { "expr": "histogram_quantile(0.95, rate(helpdesk_embedding_latency_seconds_bucket[5m]))", "legendFormat": "Embedding p95", "refId": "C" }
+      ]
+    },
+    {
+      "title": "Ingestion Pipeline",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "fieldConfig": {
+        "defaults": { "custom": { "fillOpacity": 20, "lineWidth": 2 } },
+        "overrides": []
+      },
+      "targets": [
+        { "expr": "rate(helpdesk_documents_ingested_total[1m])", "legendFormat": "Docs ingested/s", "refId": "A" },
+        { "expr": "rate(helpdesk_chunks_created_total[1m])", "legendFormat": "Chunks created/s", "refId": "B" },
+        { "expr": "rate(helpdesk_embedding_requests_total[1m])", "legendFormat": "Embedding calls/s", "refId": "C" }
+      ]
+    },
+    {
+      "title": "HTTP Error Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "color": { "mode": "fixed", "fixedColor": "red" }, "custom": { "fillOpacity": 30 } },
+        "overrides": []
+      },
+      "targets": [{
+        "expr": "sum(rate(helpdesk_http_requests_total{status=~\"4..|5..\"}[1m])) / sum(rate(helpdesk_http_requests_total[1m]))",
+        "legendFormat": "Error Rate",
+        "refId": "A"
+      }]
+    },
+    {
+      "title": "LLM Requests (Success vs Error)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "fieldConfig": {
+        "defaults": { "custom": { "fillOpacity": 30, "lineWidth": 2, "stacking": { "mode": "normal" } } },
+        "overrides": []
+      },
+      "targets": [
+        { "expr": "rate(helpdesk_llm_requests_total{status=\"success\"}[1m])", "legendFormat": "Success", "refId": "A" },
+        { "expr": "rate(helpdesk_llm_requests_total{status=\"error\"}[1m])", "legendFormat": "Error", "refId": "B" }
+      ]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["nlq-helpdesk", "gen-ai", "observability"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "NLQ Helpdesk - Gen AI Observability",
+  "uid": "nlq-helpdesk-main",
+  "version": 1
+}
