@@ -1,5 +1,7 @@
 import time
 import uuid
+import asyncio
+from functools import partial
 
 from google import genai
 
@@ -66,34 +68,17 @@ def delete_document_chunks(doc_id: str):
         log.warning("Could not delete chunks for doc %s", doc_id)
 
 
-async def chat(message: str, session_id: str | None = None,
-               guardrails_triggered: list[str] | None = None) -> ChatResponse:
+def _sync_retrieve_and_generate(message: str, history_text: str) -> tuple:
+    """Run sync retrieval + Gemini call in a thread to avoid blocking the event loop."""
     settings = get_settings()
-    start = time.perf_counter()
 
-    if not session_id:
-        session_id = uuid.uuid4().hex[:16]
-
-    # Save user message
-    await save_message(session_id, "user", message)
-
-    # Get conversation history
-    history_rows = await get_conversation(session_id)
-    history_lines = []
-    for msg in history_rows[-10:]:  # Last 10 messages for context
-        history_lines.append(f"{msg['role']}: {msg['content']}")
-    history_text = "\n".join(history_lines) if history_lines else "No previous messages."
-
-    # Retrieve relevant context
     context_docs = retrieve(message)
     context_text = "\n\n".join(
         f"[{d['source']}] (score: {d['score']}): {d['text']}" for d in context_docs
     ) if context_docs else "No relevant documents found in knowledge base."
 
-    # Build prompt
     system = SYSTEM_PROMPT.format(context=context_text, history=history_text)
 
-    # Call Gemini
     client = _get_client()
     response = client.models.generate_content(
         model=settings.gemini_model,
@@ -105,6 +90,31 @@ async def chat(message: str, session_id: str | None = None,
         ),
     )
 
+    return response, context_docs
+
+
+async def chat(message: str, session_id: str | None = None,
+               guardrails_triggered: list[str] | None = None) -> ChatResponse:
+    settings = get_settings()
+    start = time.perf_counter()
+
+    if not session_id:
+        session_id = uuid.uuid4().hex[:16]
+
+    await save_message(session_id, "user", message)
+
+    history_rows = await get_conversation(session_id)
+    history_lines = []
+    for msg in history_rows[-10:]:
+        history_lines.append(f"{msg['role']}: {msg['content']}")
+    history_text = "\n".join(history_lines) if history_lines else "No previous messages."
+
+    # Run sync retrieval + generation in a thread pool
+    loop = asyncio.get_event_loop()
+    response, context_docs = await loop.run_in_executor(
+        None, partial(_sync_retrieve_and_generate, message, history_text)
+    )
+
     answer = response.text or "I'm sorry, I couldn't generate a response."
     tokens_used = 0
     if response.usage_metadata:
@@ -112,7 +122,6 @@ async def chat(message: str, session_id: str | None = None,
             response.usage_metadata.candidates_token_count or 0
         )
 
-    # Build citations
     citations = [
         Citation(
             document_name=d["source"],
@@ -128,11 +137,9 @@ async def chat(message: str, session_id: str | None = None,
 
     latency_ms = round((time.perf_counter() - start) * 1000, 2)
 
-    # Save assistant response
     citation_dicts = [c.model_dump() for c in citations]
     await save_message(session_id, "assistant", answer, citation_dicts, confidence)
 
-    # Audit log
     triggered = guardrails_triggered or []
     sources = [d["source"] for d in context_docs]
     await save_audit(

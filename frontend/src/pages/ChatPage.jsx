@@ -1,62 +1,114 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, Trash2, FileText, Sparkles } from "lucide-react";
+import { Send, Loader2, Trash2, FileText, Zap, ArrowRight, Bot, User, Clock, Gauge, Coins } from "lucide-react";
 import { sendMessage, clearHistory } from "../lib/api";
 
-function CitationBadge({ citation }) {
+function CitationBadge({ citation, index }) {
   const [open, setOpen] = useState(false);
   return (
     <span className="relative inline-block">
       <button
         onClick={() => setOpen(!open)}
-        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 transition-colors cursor-pointer border border-indigo-500/30"
+        className="inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-lg text-[11px] font-mono
+          bg-cyan-ghost border border-cyan-glow/20 text-cyan-dim
+          hover:bg-cyan-tint hover:border-cyan-glow/40 hover:text-cyan-glow
+          transition-all duration-200 cursor-pointer group"
       >
-        <FileText className="w-3 h-3" />
-        {citation.document_name}
-        <span className="text-indigo-400/60">{Math.round(citation.relevance_score * 100)}%</span>
+        <span className="w-4 h-4 rounded bg-cyan-glow/10 flex items-center justify-center text-[9px] font-bold text-cyan-glow">
+          {index + 1}
+        </span>
+        <span className="max-w-[140px] truncate">{citation.document_name}</span>
+        <span className="text-cyan-glow/40 group-hover:text-cyan-glow/70 transition-colors">
+          {Math.round(citation.relevance_score * 100)}%
+        </span>
       </button>
       {open && (
-        <div className="absolute z-50 bottom-full left-0 mb-2 w-80 p-3 rounded-lg bg-gray-800 border border-gray-700 shadow-xl text-xs text-gray-300 whitespace-pre-wrap">
-          {citation.chunk_text}
+        <div className="absolute z-50 bottom-full left-0 mb-2 w-96 animate-fade-up">
+          <div className="p-4 rounded-xl glass border border-iron/50 shadow-2xl shadow-black/50">
+            <div className="flex items-center gap-2 mb-2 text-[10px] font-mono uppercase tracking-wider text-mist/50">
+              <FileText className="w-3 h-3" />
+              Source excerpt
+            </div>
+            <p className="text-xs text-fog/80 leading-relaxed whitespace-pre-wrap font-body">
+              {citation.chunk_text}
+            </p>
+          </div>
         </div>
       )}
     </span>
   );
 }
 
-function MessageBubble({ msg }) {
+function MessageBubble({ msg, index }) {
   const isUser = msg.role === "user";
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4`}>
-      <div
-        className={`max-w-[70%] rounded-2xl px-4 py-3 ${
-          isUser
-            ? "bg-indigo-600 text-white rounded-br-md"
-            : "bg-gray-800 text-gray-100 rounded-bl-md border border-gray-700/50"
-        }`}
-      >
-        <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+    <div
+      className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"} mb-5 animate-fade-up`}
+      style={{ animationDelay: `${index * 30}ms` }}
+    >
+      {!isUser && (
+        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-cyan-ghost border border-cyan-glow/20 flex items-center justify-center mt-1">
+          <Bot className="w-4 h-4 text-cyan-glow" />
+        </div>
+      )}
 
-        {msg.citations?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-gray-700/50">
-            {msg.citations.map((c, i) => (
-              <CitationBadge key={i} citation={c} />
-            ))}
-          </div>
-        )}
+      <div className={`max-w-[65%] ${isUser ? "order-first" : ""}`}>
+        <div
+          className={`rounded-2xl px-4 py-3 ${
+            isUser
+              ? "bg-gradient-to-br from-cyan-glow/15 to-cyan-glow/5 border border-cyan-glow/20 rounded-tr-md"
+              : "bg-deep border border-iron/50 rounded-tl-md"
+          }`}
+        >
+          <p className="text-[13px] whitespace-pre-wrap leading-[1.7] text-cloud/90">{msg.content}</p>
+
+          {msg.citations?.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-iron/30">
+              {msg.citations.map((c, i) => (
+                <CitationBadge key={i} citation={c} index={i} />
+              ))}
+            </div>
+          )}
+        </div>
 
         {msg.meta && (
-          <div className="flex items-center gap-3 mt-2 pt-2 border-t border-gray-700/50 text-xs text-gray-500">
+          <div className="flex items-center gap-3 mt-1.5 px-1 text-[10px] font-mono text-mist/40">
             {msg.meta.confidence > 0 && (
-              <span>Confidence: {Math.round(msg.meta.confidence * 100)}%</span>
+              <span className="flex items-center gap-1">
+                <Gauge className="w-3 h-3" />
+                {Math.round(msg.meta.confidence * 100)}%
+              </span>
             )}
-            {msg.meta.tokens_used > 0 && <span>{msg.meta.tokens_used} tokens</span>}
-            {msg.meta.latency_ms > 0 && <span>{msg.meta.latency_ms}ms</span>}
+            {msg.meta.tokens_used > 0 && (
+              <span className="flex items-center gap-1">
+                <Coins className="w-3 h-3" />
+                {msg.meta.tokens_used}
+              </span>
+            )}
+            {msg.meta.latency_ms > 0 && (
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {msg.meta.latency_ms}ms
+              </span>
+            )}
           </div>
         )}
       </div>
+
+      {isUser && (
+        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-slate border border-iron/50 flex items-center justify-center mt-1">
+          <User className="w-4 h-4 text-mist" />
+        </div>
+      )}
     </div>
   );
 }
+
+const SUGGESTIONS = [
+  { text: "How do I reset my password?", icon: "🔑" },
+  { text: "VPN not connecting on Mac", icon: "🌐" },
+  { text: "Set up email on my phone", icon: "📱" },
+  { text: "Request new software", icon: "💻" },
+];
 
 export default function ChatPage() {
   const [messages, setMessages] = useState([]);
@@ -106,9 +158,7 @@ export default function ChatPage() {
 
   const handleClear = async () => {
     if (sessionId) {
-      try {
-        await clearHistory(sessionId);
-      } catch (_) {}
+      try { await clearHistory(sessionId); } catch (_) {}
     }
     setMessages([]);
     setSessionId(null);
@@ -118,17 +168,20 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-gray-800 bg-gray-900/50 backdrop-blur">
-        <div>
-          <h2 className="text-base font-semibold">Chat</h2>
-          <p className="text-xs text-gray-500">
-            {sessionId ? `Session: ${sessionId}` : "New conversation"}
-          </p>
+      <header className="flex items-center justify-between px-6 py-3 border-b border-iron/30 glass z-10">
+        <div className="flex items-center gap-3">
+          <h2 className="font-display text-base font-semibold text-cloud">Chat</h2>
+          <div className="h-4 w-px bg-iron/50" />
+          <span className="text-[10px] font-mono text-mist/50 uppercase tracking-wider">
+            {sessionId ? `Session ${sessionId.slice(0, 8)}` : "New conversation"}
+          </span>
         </div>
         {messages.length > 0 && (
           <button
             onClick={handleClear}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
+              text-mist/50 hover:text-rose-glow hover:bg-rose-ghost
+              border border-transparent hover:border-rose-glow/20 transition-all duration-200"
           >
             <Trash2 className="w-3.5 h-3.5" />
             Clear
@@ -137,33 +190,43 @@ export default function ChatPage() {
       </header>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-600/10 flex items-center justify-center mb-4">
-              <Sparkles className="w-8 h-8 text-indigo-400" />
+          <div className="flex flex-col items-center justify-center h-full text-center animate-fade-up">
+            {/* Hero icon */}
+            <div className="relative mb-6">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-ghost to-transparent border border-cyan-glow/20 flex items-center justify-center glow-cyan">
+                <Zap className="w-9 h-9 text-cyan-glow" />
+              </div>
+              <div className="absolute -inset-4 bg-cyan-glow/5 rounded-3xl blur-xl -z-10" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-300">How can I help?</h3>
-            <p className="text-sm text-gray-500 mt-1 max-w-md">
-              Ask me anything about IT policies, troubleshooting, password resets,
+
+            <h3 className="font-display text-2xl font-bold text-cloud tracking-tight">
+              How can I help?
+            </h3>
+            <p className="text-sm text-mist/60 mt-2 max-w-md leading-relaxed">
+              Ask anything about IT policies, troubleshooting, password resets,
               VPN setup, or any helpdesk topic.
             </p>
-            <div className="flex flex-wrap gap-2 mt-6 justify-center">
-              {[
-                "How do I reset my password?",
-                "VPN not connecting on Mac",
-                "Set up email on my phone",
-                "Request new software",
-              ].map((q) => (
+
+            {/* Suggestion cards */}
+            <div className="grid grid-cols-2 gap-2.5 mt-8 max-w-lg w-full stagger">
+              {SUGGESTIONS.map((s) => (
                 <button
-                  key={q}
+                  key={s.text}
                   onClick={() => {
-                    setInput(q);
+                    setInput(s.text);
                     inputRef.current?.focus();
                   }}
-                  className="px-3 py-1.5 rounded-full text-xs bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200 border border-gray-700 transition-colors"
+                  className="group flex items-center gap-3 px-4 py-3 rounded-xl
+                    bg-deep border border-iron/40 hover:border-cyan-glow/30
+                    hover:bg-cyan-ghost transition-all duration-200 text-left"
                 >
-                  {q}
+                  <span className="text-lg">{s.icon}</span>
+                  <span className="text-xs text-mist group-hover:text-cloud transition-colors flex-1">
+                    {s.text}
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-iron group-hover:text-cyan-glow transition-colors" />
                 </button>
               ))}
             </div>
@@ -171,46 +234,55 @@ export default function ChatPage() {
         )}
 
         {messages.map((msg, i) => (
-          <MessageBubble key={i} msg={msg} />
+          <MessageBubble key={i} msg={msg} index={i} />
         ))}
 
         {loading && (
-          <div className="flex justify-start mb-4">
-            <div className="bg-gray-800 rounded-2xl rounded-bl-md px-4 py-3 border border-gray-700/50">
-              <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
+          <div className="flex gap-3 mb-5 animate-fade-up">
+            <div className="w-8 h-8 rounded-lg bg-cyan-ghost border border-cyan-glow/20 flex items-center justify-center">
+              <Bot className="w-4 h-4 text-cyan-glow" />
+            </div>
+            <div className="bg-deep border border-iron/50 rounded-2xl rounded-tl-md px-4 py-3">
+              <span className="cursor-blink text-sm text-mist/60">Thinking</span>
             </div>
           </div>
         )}
 
         {error && (
-          <div className="mx-auto max-w-md text-center text-sm text-red-400 bg-red-500/10 rounded-lg px-4 py-2 border border-red-500/20">
+          <div className="mx-auto max-w-md text-center text-sm text-rose-glow bg-rose-ghost rounded-xl px-4 py-3 border border-rose-glow/20 animate-fade-up">
             {error}
           </div>
         )}
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-gray-800 bg-gray-900/50">
+      <div className="px-6 py-4 border-t border-iron/30 glass">
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend();
-          }}
+          onSubmit={(e) => { e.preventDefault(); handleSend(); }}
           className="flex items-center gap-3 max-w-3xl mx-auto"
         >
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask a question..."
-            disabled={loading}
-            className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 disabled:opacity-50"
-          />
+          <div className="flex-1 relative">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask a question..."
+              disabled={loading}
+              className="w-full bg-deep border border-iron/50 rounded-xl px-4 py-3 text-sm text-cloud
+                placeholder-mist/30 font-body
+                focus:outline-none focus:border-cyan-glow/40 focus:shadow-[0_0_0_3px_rgba(0,229,255,0.08)]
+                disabled:opacity-40 transition-all duration-200"
+            />
+          </div>
           <button
             type="submit"
             disabled={!input.trim() || loading}
-            className="p-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="p-3 rounded-xl bg-gradient-to-br from-cyan-glow/20 to-cyan-glow/10
+              border border-cyan-glow/30 text-cyan-glow
+              hover:from-cyan-glow/30 hover:to-cyan-glow/15 hover:border-cyan-glow/50
+              disabled:opacity-20 disabled:cursor-not-allowed
+              transition-all duration-200 glow-cyan"
           >
             <Send className="w-4 h-4" />
           </button>

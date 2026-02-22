@@ -1,5 +1,7 @@
 import uuid
+import asyncio
 from pathlib import Path
+from functools import partial
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
 
@@ -12,7 +14,18 @@ router = APIRouter(tags=["documents"])
 log = get_logger(__name__)
 
 ALLOWED_TYPES = {".txt", ".md", ".csv", ".json"}
-SAMPLE_DIRS = ["data/faqs", "data/knowledge_base", "data/tickets"]
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent  # backend/../
+SAMPLE_DIRS = [
+    _PROJECT_ROOT / "data" / "faqs",
+    _PROJECT_ROOT / "data" / "knowledge_base",
+    _PROJECT_ROOT / "data" / "tickets",
+]
+
+
+async def _ingest_in_thread(doc_id: str, filename: str, content: str) -> int:
+    """Run sync embedding/ingestion in a thread pool to avoid blocking the event loop."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, partial(ingest_document, doc_id, filename, content))
 
 
 @router.post("/documents/upload", response_model=IngestResult)
@@ -24,7 +37,7 @@ async def upload_document(file: UploadFile = File(...)):
     content = (await file.read()).decode("utf-8")
     doc_id = uuid.uuid4().hex[:12]
 
-    chunks_created = ingest_document(doc_id, file.filename, content)
+    chunks_created = await _ingest_in_thread(doc_id, file.filename, content)
     await save_document_meta(doc_id, file.filename, ext, chunks_created, len(content))
 
     return IngestResult(
@@ -39,8 +52,7 @@ async def ingest_samples():
     details = []
     total_chunks = 0
 
-    for dir_path in SAMPLE_DIRS:
-        p = Path(dir_path)
+    for p in SAMPLE_DIRS:
         if not p.exists():
             continue
         for file in p.iterdir():
@@ -48,7 +60,7 @@ async def ingest_samples():
                 continue
             content = file.read_text(encoding="utf-8")
             doc_id = uuid.uuid4().hex[:12]
-            chunks = ingest_document(doc_id, file.name, content)
+            chunks = await _ingest_in_thread(doc_id, file.name, content)
             await save_document_meta(doc_id, file.name, file.suffix, chunks, len(content))
             total_chunks += chunks
             details.append(IngestResult(
@@ -73,6 +85,7 @@ async def list_documents():
 
 @router.delete("/documents/{doc_id}")
 async def delete_document(doc_id: str):
-    delete_document_chunks(doc_id)
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, partial(delete_document_chunks, doc_id))
     await delete_document_meta(doc_id)
     return {"status": "deleted", "document_id": doc_id}

@@ -8,6 +8,8 @@ __pycache__/
 # Environment
 .env
 *.db
+*.db-shm
+*.db-wal
 
 # Node
 node_modules/
